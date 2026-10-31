@@ -1,0 +1,12 @@
+spring:
+  data:
+    mongodb:
+      username: dbuser
+      password: dbpassword
+      host: localhost
+      port: 27017
+      database: quickchat_app
+      authentication-database: admin
+
+server:
+  port: 8088
