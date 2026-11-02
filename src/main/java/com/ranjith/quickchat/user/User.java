@@ -1,5 +1,7 @@
 package com.ranjith.quickchat.user;
 
+import java.time.Instant;
+
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -11,4 +13,5 @@ public class User {
     private String nickName;
     private String fullName;
     private Status status;
+    private Instant lastSeen; // set whenever the user goes offline
 }

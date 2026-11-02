@@ -1,54 +1,139 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#14121F">
+    <title>Quick Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        // Apply saved theme before first paint to avoid a flash
+        try {
+            var t = localStorage.getItem("quickchat-theme");
+            if (t) document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {}
+    </script>
     <link rel="stylesheet" href="css/main.css">
-    <title>Chat Application</title>
 </head>
 <body>
 
-<h2>One to One Chat | Spring boot & Websocket | By Alibou</h2>
-
-<div class="user-form" id="username-page">
-    <h2>Enter Chatroom</h2>
-    <form id="usernameForm">
-        <label for="nickname">Nickname:</label>
-        <input type="text" id="nickname" name="nickname" required>
-
-        <label for="fullname">Real Name:</label>
-        <input type="text" id="fullname" name="realname" required>
-
-        <button type="submit">Enter Chatroom</button>
-    </form>
-</div>
-
-<div class="chat-container hidden" id="chat-page">
-    <div class="users-list">
-        <div class="users-list-container">
-            <h2>Online Users</h2>
-            <ul id="connectedUsers">
-            </ul>
+<!-- ============ LOGIN ============ -->
+<main class="auth" id="username-page">
+    <section class="auth-card">
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
+            </span>
+            <h1>Quick Chat</h1>
         </div>
-        <div>
-            <p id="connected-user-fullname"></p>
-            <a class="logout" href="javascript:void(0)" id="logout">Logout</a>
+        <div class="auth-tabs" role="tablist">
+            <button type="button" role="tab" class="tab active" id="tab-login" aria-selected="true">Log in</button>
+            <button type="button" role="tab" class="tab" id="tab-signup" aria-selected="false">Sign up</button>
         </div>
-    </div>
+        <p class="auth-sub" id="auth-sub">Welcome back. Enter your nickname to continue.</p>
 
-    <div class="chat-area">
-        <div id="chat-messages">
+        <form id="usernameForm" autocomplete="off">
+            <div class="field">
+                <label for="nickname">Nickname</label>
+                <input type="text" id="nickname" name="nickname" placeholder="e.g. ranjith" pattern="\S+" title="No spaces allowed" required>
+            </div>
+            <div class="field hidden" id="fullname-field">
+                <label for="fullname">Full name</label>
+                <input type="text" id="fullname" name="realname" placeholder="e.g. Ranjith Kumar">
+            </div>
+            <p class="form-error hidden" id="login-error" role="alert"></p>
+            <button type="submit" class="btn-primary" id="login-btn">Log in</button>
+        </form>
+
+        <p class="auth-switch">
+            <span id="switch-text">New here?</span>
+            <button type="button" class="link-btn" id="switch-mode">Create an account</button>
+        </p>
+    </section>
+</main>
+
+<!-- ============ CHAT ============ -->
+<div class="app hidden" id="chat-page">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <header class="sidebar-head">
+            <div class="brand small">
+                <span class="brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
+                </span>
+                <span class="brand-name">Quick Chat</span>
+            </div>
+            <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch light or dark theme" title="Switch theme">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+            </button>
+        </header>
+
+        <div class="search">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="search" id="user-search" placeholder="Search people" autocomplete="off" aria-label="Search people by nickname or name">
         </div>
+
+        <div class="list-title">
+            <h2 id="list-heading">Chats</h2>
+            <span class="count" id="list-count">0</span>
+        </div>
+
+        <div class="users-scroll">
+            <ul id="connectedUsers"></ul>
+            <p class="list-empty hidden" id="users-empty"></p>
+        </div>
+
+        <footer class="me">
+            <span class="avatar" id="me-avatar" aria-hidden="true"></span>
+            <div class="me-info">
+                <p id="connected-user-fullname"></p>
+                <small>Online</small>
+            </div>
+            <button class="icon-btn danger" id="logout" type="button" aria-label="Log out" title="Log out">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+            </button>
+        </footer>
+    </aside>
+
+    <!-- Conversation -->
+    <section class="chat">
+        <header class="chat-head hidden" id="chat-head">
+            <button class="icon-btn back" id="back-btn" type="button" aria-label="Back to users">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <span class="avatar" id="chat-avatar" aria-hidden="true"></span>
+            <div class="chat-head-info">
+                <h3 id="chat-with-name"></h3>
+                <small id="chat-with-sub"></small>
+            </div>
+        </header>
+
+        <div class="empty-state" id="chat-empty">
+            <span class="empty-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </span>
+            <h3>Choose someone to talk to</h3>
+            <p>Open one of your chats, or search for a person to start a new one.</p>
+        </div>
+
+        <div id="chat-messages" class="hidden" aria-live="polite"></div>
 
         <form id="messageForm" name="messageForm" class="hidden">
             <div class="message-input">
-                <input autocomplete="off" type="text" id="message" placeholder="Type your message...">
-                <button>Send</button>
+                <input autocomplete="off" type="text" id="message" placeholder="Type a message" aria-label="Message">
+                <button type="submit" class="send-btn" aria-label="Send message">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.3 10l12.6 2-12.6 2z"/></svg>
+                </button>
             </div>
         </form>
-    </div>
+    </section>
 </div>
+
+<!-- Notifications -->
+<div id="toasts" aria-live="polite"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.1.4/sockjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>

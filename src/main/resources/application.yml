@@ -1,14 +1,6 @@
 spring:
   mongodb:
-    uri: mongodb://localhost:27017/quickchat_app
-  data:
-    mongodb:
-      username: dbuser
-      password: dbpassword
-      host: localhost
-      port: 27017
-      database: quickchat_app
-      authentication-database: admin
+    uri: ${MONGODB_URI}
 
 server:
-  port: 8088
+  port: ${PORT:8088}

@@ -1,14 +1,12 @@
 package com.ranjith.quickchat.user.controller;
 
-import java.util.List;
-
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.stereotype.Controller;
 
+import com.ranjith.quickchat.user.PresenceTracker;
 import com.ranjith.quickchat.user.User;
 import com.ranjith.quickchat.user.UserService;
 
@@ -19,24 +17,20 @@ import lombok.RequiredArgsConstructor;
 public class UserController {
 
     private final UserService userService;
-    private final MongoTemplate mongoTemplate;
+    private final PresenceTracker presenceTracker;
 
     @MessageMapping("/user.addUser")
     @SendTo("/topic/public")
-    public User addUser(@Payload User user) {
+    public User addUser(@Payload User user, SimpMessageHeaderAccessor headerAccessor) {
         userService.saveUser(user);
-        System.out.println(
-                "Connected Database: " +
-                        mongoTemplate.getDb().getName());
-        System.out.println("User added: " + user.getNickName());
+        presenceTracker.connected(headerAccessor.getSessionId(), user.getNickName());
         return user;
     }
 
     @MessageMapping("/user.disconnectUser")
-    @SendTo("/user/public")
-    public User disconnectUser(@Payload User user) {
-        userService.disconnectUser(user);
+    @SendTo("/topic/public")
+    public User disconnectUser(@Payload User user, SimpMessageHeaderAccessor headerAccessor) {
+        presenceTracker.loggedOut(headerAccessor.getSessionId(), user.getNickName());
         return user;
     }
-
 }
