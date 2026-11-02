@@ -14,4 +14,5 @@ public class User {
     private String fullName;
     private Status status;
     private Instant lastSeen; // set whenever the user goes offline
+    private String tag; // public 4-digit identifier shown next to the full name
 }

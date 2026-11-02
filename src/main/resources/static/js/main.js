@@ -31,6 +31,7 @@ const tabLogin = $("#tab-login");
 const tabSignup = $("#tab-signup");
 const fullnameField = $("#fullname-field");
 const fullnameInput = $("#fullname");
+const nicknameHint = $("#nickname-hint");
 const authSub = $("#auth-sub");
 const switchText = $("#switch-text");
 const switchModeBtn = $("#switch-mode");
@@ -40,6 +41,7 @@ let authMode = "login"; // "login" | "signup"
 let stompClient = null;
 let nickName = null;
 let fullName = null;
+let myTag = null;
 
 let selectedUserId = null;
 let selectedInfo = null; // { nickName, fullName, status, lastSeen } of the open chat
@@ -61,6 +63,33 @@ let refreshAgain = false;
 const enc = encodeURIComponent;
 
 /* ===================== Helpers ===================== */
+
+function displayName(u) {
+  return (u && u.fullName && u.fullName.trim()) || "Unnamed user";
+}
+function tagText(u) {
+  return u && u.tag ? `#${u.tag}` : "";
+}
+function fullLabel(u) {
+  return [displayName(u), tagText(u)].filter(Boolean).join(" ");
+}
+
+function setName(el, u) {
+  el.textContent = displayName(u);
+  const t = tagText(u);
+  if (t) {
+    const span = document.createElement("span");
+    span.className = "user-tag";
+    span.textContent = t;
+    el.appendChild(span);
+  }
+}
+
+// Takes a user object now, not a string
+function styleAvatar(el, u) {
+  el.textContent = initials(displayName(u));
+  el.style.setProperty("--hue", hueFor(fullLabel(u)));
+}
 async function getJson(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`${url} -> ${response.status}`);
@@ -75,11 +104,6 @@ function hueFor(name) {
   let h = 0;
   for (const ch of name || "") h = (h * 31 + ch.charCodeAt(0)) % 360;
   return h;
-}
-
-function styleAvatar(el, name) {
-  el.textContent = initials(name);
-  el.style.setProperty("--hue", hueFor(name));
 }
 
 function scrollToBottom() {
@@ -100,18 +124,31 @@ function showLoginError(text) {
 }
 
 function toDate(value) {
-  if (!(typeof value === "string" || typeof value === "number" || value instanceof Date)) return null;
+  if (
+    !(
+      typeof value === "string" ||
+      typeof value === "number" ||
+      value instanceof Date
+    )
+  )
+    return null;
   const d = new Date(value);
   return isNaN(d) ? null : d;
 }
 
 function formatTime(value) {
   const d = toDate(value);
-  return d ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+  return d
+    ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+    : "";
 }
 
 function sameDay(a, b) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
 function formatLastSeen(value) {
@@ -134,11 +171,18 @@ function formatLastSeen(value) {
 
 /* ===================== Message ticks ===================== */
 const RANK = { SENDING: 0, SENT: 1, DELIVERED: 2, SEEN: 3 };
-const TICK_LABEL = { SENDING: "Sending", SENT: "Sent", DELIVERED: "Delivered", SEEN: "Seen" };
+const TICK_LABEL = {
+  SENDING: "Sending",
+  SENT: "Sent",
+  DELIVERED: "Delivered",
+  SEEN: "Seen",
+};
 const TICK_SVG = {
-  SENDING: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l3 1.5"/></svg>',
+  SENDING:
+    '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l3 1.5"/></svg>',
   SENT: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
-  DOUBLE: '<svg viewBox="0 0 24 24"><path d="M1.5 12.5 6 17 15.5 7"/><path d="M7.5 12.5 12 17 21.5 7"/></svg>',
+  DOUBLE:
+    '<svg viewBox="0 0 24 24"><path d="M1.5 12.5 6 17 15.5 7"/><path d="M7.5 12.5 12 17 21.5 7"/></svg>',
 };
 
 function normStatus(status) {
@@ -149,7 +193,12 @@ function setTick(record, status) {
   record.status = status;
   const label = TICK_LABEL[status];
   record.tick.className = `tick ${status.toLowerCase()}`;
-  record.tick.innerHTML = status === "SENDING" ? TICK_SVG.SENDING : status === "SENT" ? TICK_SVG.SENT : TICK_SVG.DOUBLE;
+  record.tick.innerHTML =
+    status === "SENDING"
+      ? TICK_SVG.SENDING
+      : status === "SENT"
+        ? TICK_SVG.SENT
+        : TICK_SVG.DOUBLE;
   record.tick.title = label;
   record.tick.setAttribute("role", "img");
   record.tick.setAttribute("aria-label", label);
@@ -187,7 +236,8 @@ function onStatusEvent(payload) {
   }
 
   if (ev.type === "DELIVERED" || ev.type === "SEEN") {
-    const r = receipts[ev.from] || (receipts[ev.from] = { delivered: "", seen: "" });
+    const r =
+      receipts[ev.from] || (receipts[ev.from] = { delivered: "", seen: "" });
     if (ev.upToId > r.delivered) r.delivered = ev.upToId; // seen implies delivered
     if (ev.type === "SEEN" && ev.upToId > r.seen) r.seen = ev.upToId;
     if (ev.from === selectedUserId) applyReceipts(ev.from);
@@ -232,7 +282,7 @@ const AUTH_COPY = {
     switchButton: "Create an account",
   },
   signup: {
-    sub: "Choose a nickname and tell us your name.",
+    sub: "Create your identity on Quick Chat. Thanks for being a part of this! 💜",
     button: "Create account",
     switchText: "Already have an account?",
     switchButton: "Log in",
@@ -251,6 +301,7 @@ function setMode(mode) {
 
   fullnameField.classList.toggle("hidden", isLogin);
   fullnameInput.required = !isLogin;
+  nicknameHint.classList.toggle("hidden", isLogin); // reminder only while signing up
 
   authSub.textContent = copy.sub;
   switchText.textContent = copy.switchText;
@@ -292,12 +343,16 @@ async function connect(event) {
     );
 
     if (response.status === 409) {
-      showLoginError("That nickname already exists. Log in if it’s yours, or pick another one.");
+      showLoginError(
+        "That nickname already exists. Log in if it’s yours, or pick another one.",
+      );
       resetLoginButton();
       return;
     }
     if (response.status === 404) {
-      showLoginError("No account found with that nickname. Sign up to create one.");
+      showLoginError(
+        "No account found with that nickname. Sign up to create one.",
+      );
       resetLoginButton();
       return;
     }
@@ -306,9 +361,12 @@ async function connect(event) {
     const user = await response.json();
     nickName = user.nickName || nick;
     fullName = user.fullName || full || nick;
+    myTag = user.tag || null;
   } catch (err) {
     console.error(err);
-    showLoginError("Couldn’t reach the server. Check your connection and try again.");
+    showLoginError(
+      "Couldn’t reach the server. Check your connection and try again.",
+    );
     resetLoginButton();
     return;
   }
@@ -338,12 +396,14 @@ function onConnected() {
   // Everything people sent while I was away has now reached me
   sendDelivered();
 
-  meName.textContent = fullName;
-  styleAvatar(meAvatar, fullName);
-
+  // Switch screens first so a cosmetic bug can never leave the login card stuck
   userNamePage.classList.add("hidden");
   chatPage.classList.remove("hidden");
   resetLoginButton();
+
+  const me = { fullName, tag: myTag };
+  setName(meName, me);
+  styleAvatar(meAvatar, me);
 
   refreshSidebar(true);
 
@@ -456,12 +516,16 @@ async function refreshSidebar(force = false) {
 
     let sugg = suggestions;
     if (!convs.length && !term) {
-      sugg = await getJson(`/api/users/search?q=&exclude=${enc(nickName)}&limit=20`);
+      sugg = await getJson(
+        `/api/users/search?q=&exclude=${enc(nickName)}&limit=20`,
+      );
     }
 
     let results = searchResults;
     if (term) {
-      results = await getJson(`/api/users/search?q=${enc(term)}&exclude=${enc(nickName)}&limit=20`);
+      results = await getJson(
+        `/api/users/search?q=${enc(term)}&exclude=${enc(nickName)}&limit=20`,
+      );
     }
 
     if (!stompClient) return; // logged out meanwhile
@@ -474,6 +538,7 @@ async function refreshSidebar(force = false) {
         selectedInfo = {
           nickName: open.nickName,
           fullName: open.fullName,
+          tag: open.tag || null,
           status: open.status,
           lastSeen: open.lastSeen || null,
         };
@@ -486,7 +551,13 @@ async function refreshSidebar(force = false) {
 
     updateChatHeader(); // "last seen just now" style text ages, so refresh it every tick
 
-    const signature = JSON.stringify([convs, sugg, results, selectedInfo, searchTerm]);
+    const signature = JSON.stringify([
+      convs,
+      sugg,
+      results,
+      selectedInfo,
+      searchTerm,
+    ]);
     if (!force && signature === sidebarSig) return;
     sidebarSig = signature;
     renderSidebar();
@@ -570,14 +641,14 @@ function appendUserElement(user, mode) {
 
   const avatar = document.createElement("span");
   avatar.classList.add("avatar", online ? "online" : "offline");
-  styleAvatar(avatar, user.nickName);
+  styleAvatar(avatar, user);
 
   const meta = document.createElement("div");
   meta.classList.add("user-meta");
 
   const name = document.createElement("span");
   name.classList.add("user-name");
-  name.textContent = user.nickName;
+  setName(name, user);
   meta.appendChild(name);
 
   const sub = document.createElement("span");
@@ -586,8 +657,6 @@ function appendUserElement(user, mode) {
     sub.textContent = user.pending
       ? "New conversation"
       : (user.lastFromMe ? "You: " : "") + (user.lastMessage || "");
-  } else {
-    sub.textContent = user.fullName || "";
   }
   if (sub.textContent) meta.appendChild(sub);
 
@@ -621,7 +690,9 @@ function updateTitle() {
 function updateChatHeader() {
   if (!selectedUserId) return;
   const online = isOnline(selectedInfo);
-  chatWithSub.textContent = online ? "Online" : formatLastSeen(selectedInfo && selectedInfo.lastSeen);
+  chatWithSub.textContent = online
+    ? "Online"
+    : formatLastSeen(selectedInfo && selectedInfo.lastSeen);
   chatWithSub.classList.toggle("offline", !online);
   chatAvatar.classList.toggle("online", online);
   chatAvatar.classList.toggle("offline", !online);
@@ -645,7 +716,11 @@ function findKnownUser(userId) {
   return (
     conversations.find((u) => u.nickName === userId) ||
     searchResults.find((u) => u.nickName === userId) ||
-    suggestions.find((u) => u.nickName === userId) || { nickName: userId, fullName: "", status: "OFFLINE" }
+    suggestions.find((u) => u.nickName === userId) || {
+      nickName: userId,
+      fullName: "",
+      status: "OFFLINE",
+    }
   );
 }
 
@@ -654,6 +729,7 @@ function openChat(user) {
   selectedInfo = {
     nickName: user.nickName,
     fullName: user.fullName || "",
+    tag: user.tag || null,
     status: user.status || "OFFLINE",
     lastSeen: user.lastSeen || null,
   };
@@ -669,8 +745,8 @@ function openChat(user) {
     searchInput.value = "";
   }
 
-  styleAvatar(chatAvatar, user.nickName);
-  chatWithName.textContent = user.nickName;
+  styleAvatar(chatAvatar, user);
+  setName(chatWithName, user);
 
   chatHead.classList.remove("hidden");
   chatEmpty.classList.add("hidden");
@@ -704,7 +780,9 @@ async function fetchAndDisplayUserChat() {
   outgoing = [];
 
   try {
-    const history = await getJson(`/messages/${enc(nickName)}/${enc(requestedUser)}`);
+    const history = await getJson(
+      `/messages/${enc(nickName)}/${enc(requestedUser)}`,
+    );
     if (requestedUser !== selectedUserId) return; // user switched chats meanwhile
 
     chatArea.innerHTML = "";
@@ -712,7 +790,7 @@ async function fetchAndDisplayUserChat() {
     if (history.length === 0) {
       const empty = document.createElement("p");
       empty.classList.add("no-messages");
-      empty.textContent = `No messages yet. Say hi to ${requestedUser}.`;
+      empty.textContent = `No messages yet. Say hi to ${displayName(selectedInfo)}.`;
       chatArea.appendChild(empty);
     }
     history.forEach((chat) =>
@@ -725,7 +803,8 @@ async function fetchAndDisplayUserChat() {
     scrollToBottom();
 
     // Anything from them that I have not marked as seen yet is seen now
-    if (history.some((c) => c.senderId !== nickName && c.status !== "SEEN")) sendSeen();
+    if (history.some((c) => c.senderId !== nickName && c.status !== "SEEN"))
+      sendSeen();
   } catch (err) {
     console.error(err);
   }
@@ -769,6 +848,18 @@ function displayMessage(senderId, content, opts = {}) {
   return record;
 }
 
+async function resolveUser(userId) {
+  let u = findKnownUser(userId);
+  if (!u.fullName) {
+    try {
+      u = await getJson(`/api/users/profile/${enc(userId)}`);
+    } catch (e) {
+      /* keep fallback */
+    }
+  }
+  return u;
+}
+
 function onMessageReceived(payload) {
   const message = JSON.parse(payload.body);
   const senderId = message.senderId;
@@ -780,16 +871,18 @@ function onMessageReceived(payload) {
   if (selectedUserId && selectedUserId === senderId) {
     displayMessage(senderId, message.content, { timestamp: new Date() });
     scrollToBottom();
-    sendSeen(); // only counts if this tab is visible
-    if (document.hidden) notifyBrowser(senderId, message.content);
+    sendSeen();
+    if (document.hidden) notifyBrowser(selectedInfo, message.content);
     refreshSidebar(true);
     return;
   }
 
   // Otherwise: refresh the list (unread badge, new chat, latest preview) and notify
   refreshSidebar(true);
-  showToast(senderId, message.content);
-  notifyBrowser(senderId, message.content);
+  resolveUser(senderId).then((u) => {
+    showToast(u, message.content);
+    notifyBrowser(u, message.content);
+  });
 }
 
 function sendMessage(event) {
@@ -816,18 +909,18 @@ function sendMessage(event) {
 }
 
 /* ===================== Notifications ===================== */
-function showToast(userId, text) {
+function showToast(user, text) {
   const toast = document.createElement("div");
   toast.classList.add("toast");
 
   const avatar = document.createElement("span");
   avatar.classList.add("avatar");
-  styleAvatar(avatar, userId);
+  styleAvatar(avatar, user);
 
   const body = document.createElement("div");
   body.classList.add("toast-body");
   const title = document.createElement("strong");
-  title.textContent = userId;
+  setName(title, user);
   const msg = document.createElement("span");
   msg.textContent = text;
   body.append(title, msg);
@@ -841,7 +934,7 @@ function showToast(userId, text) {
 
   toast.addEventListener("click", () => {
     dismiss();
-    openChat(findKnownUser(userId));
+    openChat(user);
   });
 
   toasts.appendChild(toast);
@@ -849,10 +942,11 @@ function showToast(userId, text) {
   setTimeout(dismiss, 5000);
 }
 
-function notifyBrowser(title, body) {
-  if (!("Notification" in window) || Notification.permission !== "granted") return;
+function notifyBrowser(user, body) {
+  if (!("Notification" in window) || Notification.permission !== "granted")
+    return;
   if (!document.hidden) return; // in-app toast is enough when the tab is visible
-  const n = new Notification(`New message from ${title}`, { body });
+  const n = new Notification(`New message from ${fullLabel(user)}`, { body });
   n.onclick = () => {
     window.focus();
     n.close();
@@ -874,7 +968,9 @@ themeToggle.addEventListener("click", () => {
 /* ===================== Events ===================== */
 tabLogin.addEventListener("click", () => setMode("login"));
 tabSignup.addEventListener("click", () => setMode("signup"));
-switchModeBtn.addEventListener("click", () => setMode(authMode === "login" ? "signup" : "login"));
+switchModeBtn.addEventListener("click", () =>
+  setMode(authMode === "login" ? "signup" : "login"),
+);
 setMode("login");
 
 userNameForm.addEventListener("submit", connect);

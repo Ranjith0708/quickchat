@@ -524,3 +524,9 @@ button { cursor: pointer; }
 @media (max-width: 760px) {
     .msg { max-width: 82%; }
 }
+.user-tag {
+  margin-left: 0.35em;
+  font-size: 0.82em;
+  font-weight: 500;
+  opacity: 0.6;
+}
