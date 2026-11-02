@@ -96,6 +96,34 @@ async function getJson(url) {
   return response.json();
 }
 
+// The chats endpoint does not send "tag", so look it up once per person and remember it
+const tagCache = {}; // nickName -> tag
+
+async function fillTags(list) {
+  await Promise.all(
+    list.map(async (u) => {
+      if (u.tag) {
+        tagCache[u.nickName] = u.tag;
+        return;
+      }
+      if (tagCache[u.nickName]) {
+        u.tag = tagCache[u.nickName];
+        return;
+      }
+      try {
+        const p = await getJson(`/api/users/profile/${enc(u.nickName)}`);
+        if (p.tag) {
+          tagCache[u.nickName] = p.tag;
+          u.tag = p.tag;
+        }
+        if (!u.fullName && p.fullName) u.fullName = p.fullName;
+      } catch (e) {
+        /* show the name without a tag */
+      }
+    }),
+  );
+}
+
 function initials(name) {
   return (name || "?").trim().charAt(0).toUpperCase();
 }
@@ -282,7 +310,7 @@ const AUTH_COPY = {
     switchButton: "Create an account",
   },
   signup: {
-    sub: "Create your identity on Quick Chat. Thanks for being a part of this! 💜",
+    sub: "Choose a nickname and tell us your name.",
     button: "Create account",
     switchText: "Already have an account?",
     switchButton: "Log in",
@@ -464,6 +492,7 @@ function resetToLogin() {
   searchInput.value = "";
   outgoing = [];
   Object.keys(receipts).forEach((k) => delete receipts[k]);
+  Object.keys(tagCache).forEach((k) => delete tagCache[k]);
   usersList.innerHTML = "";
   chatArea.innerHTML = "";
   toasts.innerHTML = "";
@@ -503,6 +532,7 @@ async function refreshSidebar(force = false) {
   try {
     const term = searchTerm;
     const convs = await getJson(`/api/chats/${enc(nickName)}`);
+    await fillTags(convs);
 
     // Person I am chatting with who has no messages yet: ask for their status directly
     let profile = null;
@@ -519,6 +549,7 @@ async function refreshSidebar(force = false) {
       sugg = await getJson(
         `/api/users/search?q=&exclude=${enc(nickName)}&limit=20`,
       );
+      await fillTags(sugg);
     }
 
     let results = searchResults;
@@ -526,6 +557,7 @@ async function refreshSidebar(force = false) {
       results = await getJson(
         `/api/users/search?q=${enc(term)}&exclude=${enc(nickName)}&limit=20`,
       );
+      await fillTags(results);
     }
 
     if (!stompClient) return; // logged out meanwhile
