@@ -17,6 +17,6 @@ public class ChatRoom {
     @Id 
     private String id;
     private String chatId;
-    private String userId;
+    private String senderId;
     private String recipientId;
 }
